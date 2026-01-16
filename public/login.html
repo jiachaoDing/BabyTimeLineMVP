@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 宝宝成长时光轴</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 针对 aria-busy 的自定义旋转动画 */
+        [aria-busy="true"]::after {
+            content: "";
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            margin-left: 0.5rem;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-baby-bg min-h-screen flex items-center justify-center p-4 font-sans text-baby-slate">
+    <main class="w-full max-w-[400px]">
+        <article class="bg-white/80 backdrop-blur-md border border-stone-100 shadow-baby rounded-[2rem] p-8 md:p-10">
+            <header class="text-center mb-10">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-baby-pink rounded-full mb-4">
+                    <span class="text-3xl">👶</span>
+                </div>
+                <h1 class="text-3xl font-bold text-slate-800 tracking-tight">宝宝时光轴</h1>
+                <p class="text-slate-500 mt-2">私密家庭空间，记录爱与成长</p>
+            </header>
+
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-600 mb-2 ml-1">家庭访问密码</label>
+                    <input type="password" id="password" name="password" 
+                        class="w-full px-5 py-3 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-baby-pink-deep/20 focus:border-baby-pink-deep transition-all bg-white/50"
+                        placeholder="请输入访问密码..." required>
+                    <div id="error-msg" class="text-rose-500 text-sm mt-2 ml-1 min-h-[1.25rem]"></div>
+                </div>
+
+                <button type="submit" id="submit-btn" 
+                    class="w-full bg-baby-pink-deep text-white rounded-full py-3.5 font-bold shadow-sm hover:opacity-90 hover:shadow-md active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center">
+                    进入时光轴
+                </button>
+            </form>
+
+            <footer class="mt-8 text-center">
+                <p class="text-slate-400 text-sm flex items-center justify-center gap-1">
+                    <span>只有受邀的家人才可以访问哦</span>
+                    <span class="text-baby-pink-deep">❤️</span>
+                </p>
+            </footer>
+        </article>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // 页面初始化：如果已登录直接跳转
+        checkAuthAndRedirect();
+
+        const form = document.getElementById('login-form');
+        const errorMsg = document.getElementById('error-msg');
+        const submitBtn = document.getElementById('submit-btn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.textContent = '';
+            submitBtn.setAttribute('aria-busy', 'true');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '正在进入...';
+
+            try {
+                const password = document.getElementById('password').value;
+                const success = await login(password);
+                if (success) {
+                    window.location.href = 'timeline.html';
+                }
+            } catch (err) {
+                errorMsg.textContent = err.message || '访问失败，请检查密码';
+                submitBtn.textContent = '进入时光轴';
+            } finally {
+                submitBtn.setAttribute('aria-busy', 'false');
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

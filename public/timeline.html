@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成长时光轴 - 宝宝成长记录</title>
+    <link href="css/style.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* 隐藏滚动条但保留功能 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #FFC8DD; border-radius: 10px; }
+        
+        /* 拍立得效果 */
+        .polaroid {
+            background: white;
+            padding: 6px 6px 20px 6px;
+            box-shadow: 2px 4px 12px rgba(0,0,0,0.08);
+            transform: rotate(-2deg);
+            transition: all 0.3s;
+        }
+        .polaroid:hover {
+            transform: rotate(0deg) scale(1.02);
+            z-index: 10;
+            box-shadow: 4px 8px 16px rgba(0,0,0,0.12);
+        }
+
+        /* 胶带效果 */
+        .washi-tape {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 25px;
+            background-color: rgba(255, 255, 255, 0.4);
+            border-left: 1px dashed rgba(0,0,0,0.1);
+            border-right: 1px dashed rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            z-index: 20;
+            opacity: 0.8;
+            mask-image: url("data:image/svg+xml,%3Csvg width='200' height='50' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h200v50H0z' fill='black'/%3E%3C/svg%3E"); 
+            /* 实际项目中可以用一张透明的胶带png图片代替 */
+        }
+    </style>
+</head>
+<body class="bg-baby-bg bg-grid-pattern min-h-screen text-slate-700">
+
+    <nav class="sticky top-4 mx-auto max-w-4xl px-4 z-50 mb-10">
+        <div class="bg-white/80 backdrop-blur-md border border-white/40 shadow-sm rounded-full px-6 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="bg-baby-pink-deep/10 p-1.5 rounded-full">
+                    <i data-lucide="heart" class="w-5 h-5 text-baby-pink-deep fill-current"></i>
+                </div>
+                <span class="font-bold text-lg text-slate-700 tracking-wide">BabyLog</span>
+            </div>
+            <div class="flex items-center gap-3 sm:gap-6">
+                <a href="timeline.html" class="relative text-sm font-bold text-baby-pink-deep">
+                    时光轴
+                    <span class="absolute -bottom-1 left-0 w-full h-1 bg-baby-pink-deep/30 rounded-full"></span>
+                </a>
+                <a href="photos.html" class="text-sm font-medium text-slate-500 hover:text-baby-pink-deep transition-colors">照片墙</a>
+                <a href="upload.html" class="text-sm font-medium text-slate-500 hover:text-baby-pink-deep transition-colors">上传</a>
+                <button onclick="logout()" class="text-slate-400 hover:text-rose-500">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+
+    <main class="max-w-4xl mx-auto px-4 pb-32 pt-12 overflow-hidden">
+        <header class="text-center mb-16 relative">
+            <div class="inline-block relative">
+                <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight relative z-10">
+                    成长的脚印 👣
+                </h1>
+                <div class="absolute -bottom-2 left-0 w-full h-4 bg-baby-yellow/60 -rotate-2 -z-0 rounded-sm"></div>
+            </div>
+            <p class="mt-4 text-slate-500 text-sm font-medium">✨ 记录爱与被爱的每一天 ✨</p>
+        </header>
+
+        <div class="relative">
+            <div class="absolute left-8 md:left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-baby-pink-deep/0 via-baby-pink-deep/30 to-baby-pink-deep/0 md:-ml-px border-l-2 border-dashed border-baby-pink-deep/30 h-full"></div>
+
+            <div id="timeline-container" class="space-y-12 md:space-y-0">
+                <div id="loading" class="flex flex-col items-center justify-center py-20">
+                    <div class="animate-bounce text-4xl mb-4">🎈</div>
+                    <p class="text-slate-400">正在打开回忆盒子...</p>
+                </div>
+            </div>
+        </div>
+
+        <a href="upload.html" class="fixed bottom-10 right-8 group z-40">
+            <div class="absolute inset-0 bg-baby-pink-deep rounded-full animate-ping opacity-20"></div>
+            <div class="w-14 h-14 bg-baby-pink-deep text-white rounded-full flex items-center justify-center shadow-lg shadow-baby-pink-deep/40 transform group-hover:scale-110 group-hover:-rotate-90 transition-all duration-300">
+                <i data-lucide="plus" class="w-8 h-8"></i>
+            </div>
+        </a>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/timeline.js"></script> 
+    <script>
+        lucide.createIcons();
+        if (checkAuthAndRedirect()) {
+            loadTimeline();
+        }
+    </script>
+</body>
+</html>

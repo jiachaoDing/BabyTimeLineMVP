@@ -1,0 +1,17 @@
+{
+  "name": "babytimelinemvp",
+  "version": "1.0.0",
+  "description": "**一个为家庭打造的真正私密的宝宝成长记录网站（MVP）**",
+  "main": "index.js",
+  "scripts": {
+    "build:css": "tailwindcss -i ./public/css/input.css -o ./public/css/style.css",
+    "watch:css": "tailwindcss -i ./public/css/input.css -o ./public/css/style.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "tailwindcss": "^4.1.18"
+  }
+}
