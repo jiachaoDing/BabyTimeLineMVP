@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>珍贵瞬间 · 拍立得导出</title>
+    <link href="css/style.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.loli.net">
+    <link rel="preconnect" href="https://gstatic.loli.net" crossorigin>
+    <link href="https://fonts.loli.net/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
+
+    <style>
+        body {
+            background-color: #f0f2f5;
+            background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .polaroid-container {
+            perspective: 1000px;
+        }
+
+        .polaroid-card {
+            background: #fff;
+            padding: 16px 16px 60px 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .polaroid-image-wrapper {
+            width: 100%;
+            aspect-ratio: 1/1;
+            overflow: hidden;
+            background: #f3f4f6;
+            margin-bottom: 20px;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .polaroid-content {
+            font-family: 'Ma Shan Zheng', cursive;
+            text-align: center;
+        }
+
+        .export-mode .no-export {
+            display: none !important;
+        }
+
+        /* 编辑模式样式 */
+        .is-editing [contenteditable="true"] {
+            outline: none;
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-baby-pink) 30%, transparent);
+            border-radius: 4px;
+            background-color: rgba(248, 250, 252, 0.5);
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        /* 隐藏滚动条 */
+        ::-webkit-scrollbar { width: 0px; }
+    </style>
+</head>
+<body class="text-slate-700 antialiased min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- 返回按钮 -->
+    <div class="fixed top-6 left-6 z-50 no-export">
+        <a href="photos.html" class="flex items-center gap-2 text-slate-500 hover:text-baby-pink transition-colors">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            <span>返回画廊</span>
+        </a>
+    </div>
+
+    <!-- 左右导航按钮 (桌面端显示) -->
+    <button id="prev-btn" class="fixed left-4 md:left-10 top-1/2 -translate-y-1/2 z-40 p-3 rounded-full bg-white/80 shadow-lg text-slate-400 hover:text-baby-pink hover:bg-white transition-all duration-300 no-export hidden md:flex items-center justify-center group">
+        <i data-lucide="chevron-left" class="w-8 h-8 group-hover:-translate-x-1 transition-transform"></i>
+    </button>
+    <button id="next-btn" class="fixed right-4 md:right-10 top-1/2 -translate-y-1/2 z-40 p-3 rounded-full bg-white/80 shadow-lg text-slate-400 hover:text-baby-pink hover:bg-white transition-all duration-300 no-export hidden md:flex items-center justify-center group">
+        <i data-lucide="chevron-right" class="w-8 h-8 group-hover:translate-x-1 transition-transform"></i>
+    </button>
+
+    <!-- 顶部操作栏 -->
+    <div class="fixed top-20 left-1/2 -translate-x-1/2 flex flex-nowrap justify-center gap-4 z-40 no-export w-max">
+        <button id="edit-btn" class="flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 transition-all duration-300 whitespace-nowrap">
+            <i data-lucide="edit-3" class="w-5 h-5"></i>
+            <span id="edit-btn-text" class="font-medium">编辑内容</span>
+        </button>
+        <button id="download-btn" class="flex items-center gap-2 bg-white px-6 py-3 rounded-full shadow-sm border border-slate-100 text-slate-600 hover:bg-baby-pink hover:text-white transition-all duration-300 whitespace-nowrap">
+            <i data-lucide="download" class="w-5 h-5"></i>
+            <span class="font-medium">保存图片</span>
+        </button>
+    </div>
+
+
+    <!-- 拍立得主体 -->
+    <div id="capture-area" class="polaroid-container animate-fade-in-up">
+        <div class="polaroid-card">
+            <div class="polaroid-image-wrapper">
+                <img id="polaroid-img" src="" alt="Baby Moment" class="w-full h-full object-cover">
+            </div>
+            <div class="polaroid-content px-4">
+                <h2 id="polaroid-title" class="text-3xl text-slate-800 mb-2 outline-none transition-all duration-300"></h2>
+                <div id="polaroid-date" class="text-lg text-slate-400 mb-4 font-sans tracking-widest outline-none transition-all duration-300"></div>
+                <p id="polaroid-excerpt" class="text-xl text-slate-600 leading-relaxed outline-none transition-all duration-300"></p>
+            </div>
+            
+            <!-- 底部装饰 -->
+            <div class="absolute bottom-4 right-6 flex items-center gap-2 opacity-20">
+                <span class="text-[10px] font-sans uppercase tracking-tighter">Baby Timeline</span>
+                <div class="w-2 h-2 bg-rose-300 rounded-full"></div>
+            </div>
+        </div>
+    </div>
+    <!-- 临时修改提示 -->
+    <div id="edit-hint" class="mb-6 px-4 py-2 bg-amber-50 border border-amber-100 rounded-lg text-amber-600 text-xs hidden no-export animate-fade-in">
+        <i data-lucide="info" class="w-3.5 h-3.5 inline-block mr-1 -translate-y-0.5"></i>
+        当前处于编辑模式，修改仅对本次导出有效，不会保存到服务器。
+    </div>
+
+    <div class="fixed bottom-8 left-0 w-full text-center text-slate-400 text-sm no-export z-40 pointer-events-none">
+        <p>长按图片保存或点击上方按钮导出</p>
+    </div>
+
+    <!-- 成功提示层 -->
+    <div id="success-toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl z-50 opacity-0 pointer-events-none transition-all duration-500">
+        图片已生成，请长按保存
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/polaroid.js"></script>
+    <script>
+        checkAuthAndRedirect();
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>

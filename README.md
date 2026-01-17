@@ -77,14 +77,18 @@ baby-timeline/
 ├─ public/
 │  ├─ index.html
 │  ├─ timeline.html
-│  ├─ upload.html
+│  ├─ plan.html
+│  ├─ complete.html
+│  ├─ record.html
 │  ├─ assets/
 │  │  └─ styles.css
 │  └─ js/
 │     ├─ api.js
 │     ├─ auth.js
 │     ├─ timeline.js
-│     └─ upload.js
+│     ├─ plan.js
+│     ├─ complete.js
+│     └─ record.js
 │
 ├─ src/
 │  └─ input.css

@@ -91,15 +91,19 @@ create table media (
 所有 API 路径统一以 `/api/...` 访问。
 
 ### 1. 登录
-`POST /api/login` -> 返回 `{ "token": "FAMILY_TOKEN" }`
+`POST /api/login`
+- 请求体：`{ "password": "..." }`
+- 返回：`{ "token": "FAMILY_TOKEN" }`
 
 ### 2. 获取时间线
-`GET /api/timeline` -> 返回：
+`GET /api/timeline`
+- 返回：
 ```json
 [
   {
     "id": 123,
     "date": "2026-01-16",
+    "title": "宝宝的一天",
     "content": "今天宝宝很开心。",
     "media": [
       { "id": 1, "url": "/api/media/key.jpg?token=xxxx" }
@@ -113,9 +117,18 @@ create table media (
 - Worker 校验 token 后，从私有 R2 读取数据流式返回。
 - 开启 `Cache-Control: private` 保证私密性与性能平衡。
 
-### 4. 上传照片
+### 4. 上传照片与动态
 `POST /api/upload` (Multipart/form-data)
 - 支持同时创建 entry 和上传图片。
+- 参数：`file` (文件), `entry_id` (可选), `title` (可选), `content` (可选), `date` (可选)。
+
+### 5. 创建或更新条目（纯文字）
+`POST /api/entry`
+- 请求体：`{ "id": 123, "title": "...", "content": "...", "date": "..." }` (有 id 为更新，无 id 为新建)
+
+### 6. 删除条目
+`DELETE /api/entry/:id`
+- 删除条目及其关联的所有 R2 物理文件和数据库媒体记录。
 
 ------
 
@@ -128,11 +141,16 @@ BabyTimeLineMVP/
 │  │  ├─ api.js         # API 请求封装 (带 Header 校验)
 │  │  ├─ auth.js        # 登录与 Token 管理
 │  │  ├─ timeline.js    # 时间线渲染
-│  │  └─ upload.js      # 上传逻辑
+│  │  ├─ plan.js        # 设置期待逻辑
+│  │  ├─ complete.js    # 达成勋章逻辑
+│  │  └─ record.js      # 记录瞬间/历史逻辑
 │  ├─ index.html
 │  ├─ login.html
 │  ├─ timeline.html
-│  └─ upload.html
+│  ├─ milestones.html
+│  ├─ plan.html
+│  ├─ complete.html
+│  └─ record.html
 │
 ├─ worker/              # 后端代码 (Cloudflare Worker)
 │  ├─ src/

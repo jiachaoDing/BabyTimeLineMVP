@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成长勋章馆 - 宝宝成长记录</title>
+    <link href="css/style.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+
+        .milestone-card {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .milestone-card:hover {
+            transform: translateY(-8px) scale(1.05);
+        }
+        
+        /* 勋章发光效果 */
+        .milestone-glow {
+            position: absolute;
+            inset: -10px;
+            background: radial-gradient(circle, rgba(253, 230, 138, 0.4) 0%, rgba(253, 230, 138, 0) 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .milestone-card:hover .milestone-glow {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-baby-bg bg-grid-pattern min-h-screen text-slate-700">
+
+    <div id="header-placeholder"></div>
+
+    <!-- 背景装饰浮动泡泡 -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div class="absolute top-[10%] left-[10%] w-64 h-64 bg-baby-pink/20 blur-3xl rounded-full animate-blob"></div>
+        <div class="absolute top-[40%] right-[10%] w-72 h-72 bg-baby-yellow/20 blur-3xl rounded-full animate-blob animation-delay-2000"></div>
+        <div class="absolute bottom-[20%] left-[15%] w-80 h-80 bg-mist-blue/20 blur-3xl rounded-full animate-blob animation-delay-4000"></div>
+    </div>
+
+    <main class="max-w-5xl mx-auto px-4 pb-32 pt-12">
+        
+        <header class="text-center mb-16 relative">
+            <div class="inline-block relative">
+                <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight relative z-10">
+                    勋章成就馆 🏆
+                </h1>
+                <div class="absolute -bottom-2 left-0 w-full h-4 bg-baby-yellow/60 -rotate-1 -z-0 rounded-sm"></div>
+            </div>
+            <p class="mt-4 text-slate-500 text-sm font-medium">✨ 每一个小小的进步，都值得被点亮 ✨</p>
+            
+            <div id="stats-container" class="mt-8 flex justify-center gap-8">
+                <div class="bg-white/60 backdrop-blur-sm px-6 py-3 rounded-2xl border border-white shadow-sm">
+                    <div id="total-stats" class="text-2xl font-black text-baby-pink-deep">-</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">总勋章</div>
+                </div>
+                <div class="bg-white/60 backdrop-blur-sm px-6 py-3 rounded-2xl border border-white shadow-sm">
+                    <div id="completed-stats" class="text-2xl font-black text-amber-500">-</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">已达成</div>
+                </div>
+                <div class="bg-white/60 backdrop-blur-sm px-6 py-3 rounded-2xl border border-white shadow-sm">
+                    <div id="percent-stats" class="text-2xl font-black text-green-500">-</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">达成率</div>
+                </div>
+            </div>
+        </header>
+
+        <section id="milestone-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-12">
+            <!-- 动态加载勋章 -->
+            <div class="col-span-full flex justify-center py-20">
+                <div class="animate-spin text-4xl">🎈</div>
+            </div>
+        </section>
+
+        <!-- 悬浮添加按钮 (新建待达成里程碑) -->
+        <a href="plan.html" class="fixed bottom-10 right-8 group z-40">
+            <div class="absolute inset-0 bg-amber-400 rounded-full animate-ping opacity-20"></div>
+            <div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-baby-yellow text-white rounded-full flex flex-col items-center justify-center shadow-lg shadow-amber-200 transform group-hover:scale-110 group-hover:rotate-12 transition-all duration-300">
+                <i data-lucide="award" class="w-6 h-6"></i>
+                <span class="text-[8px] font-black uppercase">NEW</span>
+            </div>
+            <!-- 提示气泡 -->
+            <div class="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
+                新建待达成勋章
+                <div class="absolute top-1/2 -translate-y-1/2 -right-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+            </div>
+        </a>
+
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/milestones.js"></script>
+    <script>
+        if (checkAuthAndRedirect()) {
+            loadMilestones();
+        }
+    </script>
+</body>
+</html>

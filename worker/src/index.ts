@@ -1,8 +1,8 @@
 /// <reference types="@cloudflare/workers-types" />
 import { handleLogin } from './routes/auth';
-import { handleGetTimeline, handleCreateEntry, handleDeleteEntry } from './routes/timeline';
+import { handleGetTimeline, handleCreateEntry, handleDeleteEntry, handleGetMilestones } from './routes/timeline';
 import { handleUpload } from './routes/upload';
-import { handleGetMedia } from './routes/media';
+import { handleGetMedia, handleDeleteMedia } from './routes/media';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -59,8 +59,12 @@ export default {
     try {
       if (path.startsWith('/api/media/') && request.method === 'GET') {
         response = await handleGetMedia(request, env);
+      } else if (path.startsWith('/api/media/') && request.method === 'DELETE') {
+        response = await handleDeleteMedia(request, env);
       } else if (path === '/api/timeline' && request.method === 'GET') {
         response = await handleGetTimeline(request, env);
+      } else if (path === '/api/milestones' && request.method === 'GET') {
+        response = await handleGetMilestones(request, env);
       } else if (path === '/api/entry' && request.method === 'POST') {
         response = await handleCreateEntry(request, env);
       } else if (path.startsWith('/api/entry/') && request.method === 'DELETE') {

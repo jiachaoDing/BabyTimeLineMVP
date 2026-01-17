@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回忆瞬间 - 宝宝成长记录</title>
+    <link href="css/style.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.6s ease-out forwards; }
+
+        /* 朋友圈分享卡片样式 (预设模式1) */
+        .share-card {
+            background: white;
+            border-radius: 2rem;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 拍立得堆叠效果 */
+        .photo-stack {
+            perspective: 1000px;
+        }
+        .photo-item {
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            transition: all 0.5s ease;
+        }
+        .photo-item:hover {
+            transform: scale(1.05) rotate(0deg) !important;
+            z-index: 50 !important;
+        }
+
+        /* 隐藏打印/导出时不必要的元素 */
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            .share-card { box-shadow: none; border: 1px solid #eee; }
+        }
+
+        /* 装饰背景 */
+        .bg-dots {
+            background-image: radial-gradient(#FFC8DD 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-baby-bg min-h-screen text-slate-700 font-sans">
+
+    <div id="header-placeholder" class="no-print"></div>
+
+    <main class="max-w-3xl mx-auto px-4 pt-8 pb-32">
+        
+        <!-- 操作栏 -->
+        <div class="flex justify-between items-center mb-8 no-print">
+            <button onclick="history.back()" class="flex items-center gap-2 text-slate-400 hover:text-baby-pink-deep transition-colors font-bold text-sm">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                返回时光轴
+            </button>
+            <div class="flex gap-3">
+                <button id="mode-toggle" class="bg-white/80 backdrop-blur-sm border border-white px-4 py-2 rounded-full text-xs font-bold text-slate-500 shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+                    <i data-lucide="palette" class="w-4 h-4"></i>
+                    切换风格
+                </button>
+                <button id="edit-btn" class="bg-white/80 backdrop-blur-sm border border-white px-4 py-2 rounded-full text-xs font-bold text-baby-pink-deep shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    编辑
+                </button>
+            </div>
+        </div>
+
+        <!-- 详情卡片容器 (朋友圈分享模式) -->
+        <div id="detail-card" class="share-card animate-fade-in bg-white relative">
+            
+            <!-- 卡片顶部装饰线 (不同风格可通过 JS 切换) -->
+            <div id="card-decorator" class="h-2 bg-gradient-to-r from-baby-pink to-baby-yellow"></div>
+
+            <div class="p-8 sm:p-12">
+                <!-- 日期与天气/心情占位 (未来可扩展) -->
+                <div class="flex justify-between items-center mb-10">
+                    <div class="flex flex-col">
+                        <span id="display-date" class="text-3xl font-black text-slate-800 tracking-tighter">2023.10.01</span>
+                        <span id="display-weekday" class="text-xs font-bold text-baby-pink-deep uppercase tracking-widest mt-1">SUNDAY · 晴</span>
+                    </div>
+                    <div id="display-icon" class="w-16 h-16 bg-baby-pink/10 rounded-full flex items-center justify-center text-3xl">
+                        👶
+                    </div>
+                </div>
+
+                <!-- 标题 -->
+                <h1 id="display-title" class="text-2xl sm:text-4xl font-extrabold text-slate-900 mb-8 leading-tight tracking-tight">
+                    宝宝第一次尝试吃辅食
+                </h1>
+
+                <!-- 照片展示区域 (动态切换布局) -->
+                <div id="display-media" class="grid grid-cols-1 gap-4 mb-10">
+                    <!-- 动态加载照片 -->
+                </div>
+
+                <!-- 正文内容 -->
+                <div class="relative">
+                    <div class="absolute -left-6 top-0 bottom-0 w-1 bg-baby-pink/20 rounded-full"></div>
+                    <p id="display-content" class="text-lg sm:text-xl text-slate-600 leading-relaxed font-medium whitespace-pre-wrap pl-2">
+                        加载中...
+                    </p>
+                </div>
+
+                <!-- 卡片底部 (导出时显示二维码或品牌) -->
+                <div class="mt-20 pt-10 border-t border-dashed border-slate-100 flex justify-between items-end">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-baby-pink-deep rounded-xl flex items-center justify-center text-white shadow-lg rotate-3">
+                            <i data-lucide="heart" class="w-5 h-5 fill-current"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Record with Love</p>
+                            <p class="text-sm font-bold text-slate-700 mt-1">宝宝成长时光轴</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p id="display-time" class="text-[10px] font-bold text-slate-300">PUBLISHED AT 14:30</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部导出操作区 -->
+        <div class="mt-12 flex flex-col items-center no-print">
+            <button id="export-btn" class="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black shadow-2xl hover:bg-black hover:-translate-y-1 transition-all flex items-center gap-3 group">
+                <i data-lucide="download" class="w-5 h-5 group-hover:animate-bounce"></i>
+                生成分享海报
+            </button>
+            <p class="mt-4 text-slate-400 text-xs font-bold">点击按钮保存精美长图，分享给亲友 📸</p>
+        </div>
+
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/detail.js"></script>
+    <script>
+        if (checkAuthAndRedirect()) {
+            loadEntryDetail();
+        }
+    </script>
+</body>
+</html>

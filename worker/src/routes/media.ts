@@ -1,4 +1,6 @@
 import { Env } from '../index';
+import { selectMediaById, deleteMedia } from '../supabase';
+import { deleteObject } from '../r2';
 
 /**
  * 代理获取 R2 媒体文件
@@ -42,6 +44,51 @@ export async function handleGetMedia(request: Request, env: Env): Promise<Respon
   } catch (err: any) {
     console.error('R2 Get Error:', err);
     return new Response(JSON.stringify({ error: 'Internal Server Error' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * 删除单张媒体文件
+ */
+export async function handleDeleteMedia(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const idStr = url.pathname.split('/').pop();
+  const id = idStr ? parseInt(idStr) : null;
+
+  if (!id) {
+    return new Response(JSON.stringify({ error: 'Media ID is required' }), { 
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  try {
+    // 1. 查询 R2 Key
+    const media = await selectMediaById(env, id);
+    if (!media) {
+      return new Response(JSON.stringify({ error: 'Media not found' }), { 
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 2. 从 R2 删除物理文件
+    if (media.r2_key) {
+      await deleteObject(env, media.r2_key);
+    }
+
+    // 3. 从数据库删除记录
+    await deleteMedia(env, id);
+
+    return new Response(JSON.stringify({ success: true, message: 'Media deleted' }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (err: any) {
+    console.error('Delete Media Error:', err);
+    return new Response(JSON.stringify({ error: err.message }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

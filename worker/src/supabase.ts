@@ -22,11 +22,30 @@ async function supabaseFetch<T = any>(env: Env, endpoint: string, options: Reque
 }
 
 /**
- * 查询所有日记条目
+ * 查询日记条目 (带分页)
  */
-export async function selectEntries(env: Env): Promise<any[]> {
-  // 按日期降序排列
-  return await supabaseFetch<any[]>(env, '/entries?select=*&order=date.desc');
+export async function selectEntries(env: Env, options: { limit?: number; offset?: number; type?: string } = {}): Promise<any[]> {
+  let query = '/entries?select=*&order=date.desc';
+  
+  if (options.type && options.type !== 'all') {
+    query += `&type=eq.${options.type}`;
+  }
+  
+  if (options.limit !== undefined) {
+    const offset = options.offset || 0;
+    // Supabase 使用 Range header 或 limit/offset params
+    // 这里使用 query params 比较直观
+    query += `&limit=${options.limit}&offset=${offset}`;
+  }
+  
+  return await supabaseFetch<any[]>(env, query);
+}
+
+/**
+ * 查询所有勋章 (不分页，用于勋章墙)
+ */
+export async function selectAllMilestones(env: Env): Promise<any[]> {
+  return await supabaseFetch<any[]>(env, '/entries?select=*&type=eq.milestone&order=date.desc');
 }
 
 /**
@@ -41,10 +60,14 @@ export async function selectMediaByEntries(env: Env, entryIds: number[]): Promis
 /**
  * 插入新条目
  */
-export async function insertEntry(env: Env, entry: { title?: string; content: string; date: string }) {
+export async function insertEntry(env: Env, entry: { title?: string; content: string; date: string; type?: string; status?: string }) {
   const result = await supabaseFetch(env, '/entries', {
     method: 'POST',
-    body: JSON.stringify(entry),
+    body: JSON.stringify({
+      ...entry,
+      type: entry.type || 'daily',
+      status: entry.status || 'completed'
+    }),
   });
   return (result as any[])[0];
 }
@@ -52,7 +75,7 @@ export async function insertEntry(env: Env, entry: { title?: string; content: st
 /**
  * 更新条目
  */
-export async function updateEntry(env: Env, id: number, entry: { title?: string; content?: string; date?: string }) {
+export async function updateEntry(env: Env, id: number, entry: { title?: string; content?: string; date?: string; type?: string; status?: string }) {
   const result = await supabaseFetch(env, `/entries?id=eq.${id}`, {
     method: 'PATCH',
     body: JSON.stringify(entry),
@@ -81,6 +104,23 @@ export async function deleteEntry(env: Env, id: number): Promise<void> {
   await supabaseFetch(env, `/entries?id=eq.${id}`, {
     method: 'DELETE',
   });
+}
+
+/**
+ * 根据 ID 删除单张媒体元数据
+ */
+export async function deleteMedia(env: Env, id: number): Promise<any> {
+  return await supabaseFetch(env, `/media?id=eq.${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * 根据 ID 查询单张媒体记录 (用于获取 r2_key)
+ */
+export async function selectMediaById(env: Env, id: number): Promise<any> {
+  const result = await supabaseFetch<any[]>(env, `/media?id=eq.${id}&select=*`);
+  return result[0];
 }
 
 /**

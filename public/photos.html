@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>时光 · 宝贝成长记录</title>
     <link href="css/style.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.loli.net">
+    <link rel="preconnect" href="https://gstatic.loli.net" crossorigin>
+    <link href="https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 
     <style>
         /* 自定义关键样式：噪点纹理与隐藏滚动条 */
@@ -41,6 +42,8 @@
 </head>
 <body class="text-slate-700 antialiased min-h-screen relative selection:bg-rose-200 selection:text-rose-900">
 
+    <div id="header-placeholder"></div>
+
     <div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
         <div class="absolute top-0 left-1/4 w-96 h-96 bg-soft-pink/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
         <div class="absolute top-0 right-1/4 w-96 h-96 bg-mist-blue/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
@@ -72,12 +75,27 @@
             </div>
         </div>
 
+        <!-- 滚动加载指示器 -->
+        <div id="infinite-scroll-trigger" class="flex justify-center items-center min-h-[1.25rem] mt-12">
+            <div class="flex gap-1.5">
+                <div class="w-1.5 h-1.5 bg-baby-pink rounded-full animate-bounce"></div>
+                <div class="w-1.5 h-1.5 bg-baby-pink rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div class="w-1.5 h-1.5 bg-baby-pink rounded-full animate-bounce [animation-delay:0.4s]"></div>
+            </div>
+        </div>
+
     </main>
 
     <footer class="text-center py-12 text-slate-300 text-xs font-light relative z-10">
         <p>&copy; 2026 Baby Growth Record. Made with love.</p>
     </footer>
 
+    <script src="js/auth.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/api.js"></script>
     <script src="./js/photos.js"></script>
+    <script>
+        checkAuthAndRedirect();
+    </script>
 </body>
 </html>
