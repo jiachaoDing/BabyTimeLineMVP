@@ -1,5 +1,5 @@
 import { Env } from '../index';
-import { selectEntries, selectMediaByEntries, insertEntry, updateEntry, deleteEntry, deleteMediaByEntryId, selectAllMilestones } from '../supabase';
+import { selectEntries, selectMediaByEntries, insertEntry, updateEntry, deleteEntry, deleteMediaByEntryId, selectAllMilestones, selectLatestUpdate } from '../supabase';
 import { deleteObject } from '../r2';
 
 /**
@@ -11,21 +11,24 @@ export async function handleGetTimeline(request: Request, env: Env): Promise<Res
   const limit = parseInt(url.searchParams.get('limit') || '20');
   const type = url.searchParams.get('type') || 'all';
   const search = url.searchParams.get('search') || '';
+  const sort = (url.searchParams.get('sort') === 'asc') ? 'asc' : 'desc';
+  const excludePending = url.searchParams.get('exclude_pending') === 'true';
 
   const offset = (page - 1) * limit;
 
-  // 1. 获取条目 (这里简化了搜索逻辑，Supabase 支持 .ilike)
-  // 注意：如果 search 不为空，需要传递给 selectEntries
-  const entries = await selectEntries(env, { limit, offset, type });
+  // 1. 获取条目 (Supabase 层支持 ilike 搜索)
+  const entries = await selectEntries(env, { 
+    limit, 
+    offset, 
+    type, 
+    sort,
+    // excludeType: excludeMilestones ? 'milestone' : undefined, // 移除旧逻辑
+    excludePendingMilestones: excludePending, // 使用新逻辑
+    search // 传递搜索关键词
+  });
   
-  // 如果有搜索，简单的过滤 (在实际生产中建议在 Supabase 层做 ilike)
-  let filteredEntries = entries;
-  if (search) {
-    filteredEntries = entries.filter((e: any) => 
-      (e.title || '').toLowerCase().includes(search.toLowerCase()) || 
-      (e.content || '').toLowerCase().includes(search.toLowerCase())
-    );
-  }
+  // 以前的内存过滤逻辑已移除，直接使用数据库返回的结果
+  const filteredEntries = entries;
 
   if (filteredEntries.length === 0) {
     return new Response(JSON.stringify([]), {
@@ -141,4 +144,19 @@ export async function handleDeleteEntry(request: Request, env: Env): Promise<Res
       headers: { 'Content-Type': 'application/json' }
     });
   }
+}
+/**
+ * 检查数据同步状态
+ * 返回最后更新的时间戳，前端可对比本地缓存时间戳来决定是否需要刷新
+ */
+export async function handleSyncCheck(request: Request, env: Env): Promise<Response> {
+  const latest = await selectLatestUpdate(env);
+  
+  // 返回的时间戳格式：ISO 字符串
+  // 如果没有任何数据，返回 null
+  return new Response(JSON.stringify({ 
+    last_updated: latest ? latest.created_at : null 
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
 }

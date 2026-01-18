@@ -182,17 +182,39 @@ uploadForm.addEventListener('submit', async (e) => {
         formData.set('content', '期待达成这个精彩瞬间 ✨');
     }
 
+    // 压缩图片辅助函数
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
+            new Compressor(file, {
+                quality: 0.6,
+                maxWidth: 1920,
+                maxHeight: 1920,
+                success(result) {
+                    resolve(result);
+                },
+                error(err) {
+                    console.warn('Compression failed, using original:', err);
+                    resolve(file);
+                },
+            });
+        });
+    };
+
     // 按钮 Loading 态
     submitBtn.setAttribute('aria-busy', 'true');
     submitBtn.disabled = true;
     const originalContent = submitBtn.innerHTML;
     submitBtn.innerHTML = `
         <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
-        <span>正在保存...</span>
+        <span>正在优化并保存...</span>
     `;
     lucide.createIcons();
 
     try {
+        // 预处理：压缩所有选中的图片
+        const rawFiles = Array.from(fileInput.files);
+        const compressedFiles = await Promise.all(rawFiles.map(file => compressImage(file)));
+
         if (editId) {
             // 编辑模式
             const updateData = {
@@ -210,11 +232,11 @@ uploadForm.addEventListener('submit', async (e) => {
             });
 
             // 如果有新照片上传
-            if (fileInput.files.length > 0) {
+            if (compressedFiles.length > 0) {
                 const uploadFormData = new FormData();
                 uploadFormData.append('entry_id', editId);
-                Array.from(fileInput.files).forEach(file => {
-                    uploadFormData.append('file', file);
+                compressedFiles.forEach(file => {
+                    uploadFormData.append('file', file, file.name);
                 });
                 await apiRequest('/upload', {
                     method: 'POST',
@@ -224,6 +246,15 @@ uploadForm.addEventListener('submit', async (e) => {
         } else {
             // 新建模式
             const uploadFormData = new FormData(uploadForm);
+            
+            // 替换为压缩后的文件
+            if (compressedFiles.length > 0) {
+                uploadFormData.delete('file');
+                compressedFiles.forEach(file => {
+                    uploadFormData.append('file', file, file.name);
+                });
+            }
+
             uploadFormData.set('status', 'pending');
             uploadFormData.set('type', 'milestone');
             

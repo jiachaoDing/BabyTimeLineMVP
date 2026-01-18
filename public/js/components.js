@@ -71,21 +71,27 @@ function initHeader() {
         }
     }).join('');
 
-    // 只在时光轴页面显示搜索按钮
-    const searchButtonHtml = isTimeline ? `
+    // 只在时光轴和照片墙页面显示搜索按钮
+    const showSearch = isTimeline || isPhotos;
+    const searchButtonHtml = showSearch ? `
         <button id="search-toggle" class="text-slate-500 hover:text-baby-pink-deep transition-colors flex items-center" title="搜索">
             <i data-lucide="search" class="w-5 h-5"></i>
         </button>
     ` : '';
 
+    // Inject Google Font for artistic text (Using loli.net mirror for China access)
+    if (!document.querySelector('link[href="https://fonts.loli.net/css2?family=Pacifico&display=swap"]')) {
+        const fontLink = document.createElement('link');
+        fontLink.href = 'https://fonts.loli.net/css2?family=Pacifico&display=swap';
+        fontLink.rel = 'stylesheet';
+        document.head.appendChild(fontLink);
+    }
+
     const headerHtml = `
     <nav class="sticky top-4 mx-auto max-w-4xl px-4 z-50 mb-10">
         <div class="bg-white/80 backdrop-blur-md border border-white/40 shadow-sm rounded-full px-6 py-3 flex justify-between items-center">
             <div class="flex items-center gap-2">
-                <div class="bg-baby-pink-deep/10 p-1.5 rounded-full">
-                    <i data-lucide="heart" class="w-5 h-5 text-baby-pink-deep fill-current"></i>
-                </div>
-                <span class="font-bold text-lg text-slate-700 tracking-wide">Baby</span>
+                <span class="text-xl text-baby-pink-deep tracking-wide" style="font-family: 'Pacifico', cursive;" title="邹云舒">ZYS</span>
             </div>
             <div class="flex items-center gap-3 sm:gap-6">
                 ${navHtml}
@@ -96,19 +102,25 @@ function initHeader() {
             </div>
         </div>
         <!-- 搜索面板 -->
-        ${isTimeline ? `
+        ${showSearch ? `
         <div id="search-panel" class="hidden mt-4 mx-auto max-w-4xl animate-in slide-in-from-top-2 duration-200">
             <div class="bg-white/60 backdrop-blur-md border border-white/60 rounded-3xl shadow-lg p-4 flex flex-col sm:flex-row gap-4">
                 <div class="relative flex-1">
                     <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                    <input type="text" id="search-input" placeholder="搜索宝宝的回忆..." 
-                        class="w-full pl-11 pr-4 py-2.5 bg-white/40 border border-white/40 rounded-full focus:ring-2 focus:ring-baby-pink-deep/30 outline-none transition-all text-sm">
+                    <input type="text" id="search-input" placeholder="搜索云舒的回忆..." 
+                        class="w-full pl-11 pr-10 py-2.5 bg-white/40 border border-white/40 rounded-full focus:ring-2 focus:ring-baby-pink-deep/30 outline-none transition-all text-sm">
+                    <button id="search-clear" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 hidden">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
                 </div>
                 <select id="type-filter" class="px-6 py-2.5 bg-white/40 border border-white/40 rounded-full focus:ring-2 focus:ring-baby-pink-deep/30 outline-none transition-all text-sm font-medium text-slate-600 appearance-none cursor-pointer">
                     <option value="all">显示全部</option>
                     <option value="milestone">只看里程碑</option>
                     <option value="daily">只看日记</option>
                 </select>
+                <button id="search-confirm" class="px-6 py-2.5 bg-baby-pink-deep text-white text-sm font-bold rounded-full shadow-md hover:brightness-105 active:scale-95 transition-all whitespace-nowrap">
+                    搜索
+                </button>
             </div>
         </div>
         ` : ''}
@@ -153,6 +165,9 @@ function initHeader() {
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
+
+    // 派发自定义事件，通知其他脚本 Header 已加载
+    document.dispatchEvent(new CustomEvent('header-loaded'));
 }
 
 // 页面加载完成后初始化

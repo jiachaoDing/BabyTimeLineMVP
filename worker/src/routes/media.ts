@@ -33,7 +33,8 @@ export async function handleGetMedia(request: Request, env: Env): Promise<Respon
     headers.set('etag', object.httpEtag);
     
     // 设置私有缓存，防止中间节点缓存私密图片，但允许浏览器缓存以提高性能
-    headers.set('Cache-Control', 'private, max-age=3600'); 
+    // max-age=31536000 (1年) - 因为文件名包含随机字符且不可变，可以长久缓存
+    headers.set('Cache-Control', 'private, max-age=31536000, immutable'); 
     
     // 允许跨域
     headers.set('Access-Control-Allow-Origin', '*');

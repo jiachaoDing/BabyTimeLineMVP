@@ -10,56 +10,124 @@ let isLoading = false;
 let hasMore = true;
 let currentSearch = '';
 let currentType = 'all';
+let currentSort = 'desc';
+let isHidePending = false;
 
 async function loadTimeline() {
     const loading = document.getElementById('loading');
+    const container = document.getElementById('timeline-container');
     
+    // 0. 绑定搜索事件 (无论是否命中缓存都需要绑定)
+    if (document.getElementById('search-input')) {
+        initFilters();
+    } else {
+        document.addEventListener('header-loaded', initFilters);
+    }
+    
+    // 1. 尝试优先加载本地缓存 (极速屏显)
+    const cachedTimeline = localStorage.getItem('timeline_cache_data');
+    const cachedMilestones = localStorage.getItem('milestone_cache_data');
+    
+    if (cachedTimeline && cachedMilestones) {
+        try {
+            const parsedTimeline = JSON.parse(cachedTimeline);
+            const parsedMilestones = JSON.parse(cachedMilestones);
+            
+            if (parsedTimeline.length > 0) {
+                loading.style.display = 'none';
+                renderMilestoneWall(parsedMilestones);
+                container.innerHTML = parsedTimeline.map((entry, index) => renderEntry(entry, index)).join('');
+                if(window.lucide) lucide.createIcons();
+                initInfiniteScroll();
+                // 标记是从缓存加载的，UI上可以给个小提示或者无感
+                console.log('Loaded from local cache');
+            }
+        } catch (e) {
+            console.warn('Cache parse failed:', e);
+            localStorage.removeItem('timeline_cache_data');
+        }
+    }
+
     try {
-        // 1. 并发获取勋章数据和第一页时光轴数据
+        // 1. 检查数据同步状态
+        const syncRes = await apiRequest('/sync-check');
+        const lastUpdated = syncRes.last_updated;
+        const localLastUpdated = localStorage.getItem('timeline_last_updated');
+        
+        // 如果本地有缓存且时间戳一致，直接使用缓存
+        if (cachedTimeline && lastUpdated && lastUpdated === localLastUpdated) {
+            console.log('Timeline is up-to-date');
+            loading.style.display = 'none';
+            // 确保 DOM 已渲染 (如果刚才缓存渲染失败了)
+            if (container.children.length <= 1) { 
+                 const parsedTimeline = JSON.parse(cachedTimeline);
+                 container.innerHTML = parsedTimeline.map((entry, index) => renderEntry(entry, index)).join('');
+                 if(window.lucide) lucide.createIcons();
+                 initInfiniteScroll();
+            }
+            handleInitialHash(); // 确保从缓存加载也能处理 Hash 跳转
+            return; // 结束函数，不再发起后续请求
+        }
+
+        // 2. 数据不一致或无缓存，并发获取最新数据
+        console.log('Fetching new data...');
         const [milestones, firstPage] = await Promise.all([
             apiRequest('/milestones'),
             fetchTimelinePage(1)
         ]);
 
+        // 3. 更新内存数据
         allMilestones = milestones;
         timelineEntries = firstPage;
         
         loading.style.display = 'none';
 
-        // 2. 渲染勋章墙
+        // 4. 写入缓存和新的时间戳 (重置缓存)
+        localStorage.setItem('timeline_cache_data', JSON.stringify(firstPage));
+        localStorage.setItem('milestone_cache_data', JSON.stringify(milestones));
+        if (lastUpdated) {
+            localStorage.setItem('timeline_last_updated', lastUpdated);
+        }
+
+        // 5. 重新渲染
         renderMilestoneWall(allMilestones);
 
-        // 3. 渲染时光轴内容
-        const container = document.getElementById('timeline-container');
         if (!timelineEntries || timelineEntries.length === 0) {
             renderEmptyState(container);
         } else {
-            container.innerHTML = timelineEntries.map((entry, index) => renderEntry(entry, index)).join('');
-            if(window.lucide) lucide.createIcons();
+            // 简单的 Diff 优化：如果缓存和新数据字符串化后一样，就不重绘了，避免图片闪烁
+            const isDataChanged = JSON.stringify(firstPage) !== cachedTimeline;
             
-            // 4. 初始化无限滚动
+            if (isDataChanged || !cachedTimeline) {
+                container.innerHTML = timelineEntries.map((entry, index) => renderEntry(entry, index)).join('');
+                if(window.lucide) lucide.createIcons();
+            }
+            
+            // 重新初始化无限滚动和事件
             initInfiniteScroll();
         }
-
-        // 5. 绑定搜索事件
-        initFilters();
 
         // 6. 处理 Hash 滚动
         handleInitialHash();
 
     } catch (err) {
         console.error('Failed to load timeline:', err);
-        loading.innerHTML = `
-            <div class="text-center py-10">
-                <p class="text-rose-500 font-medium">加载失败: ${err.message}</p>
-                <button onclick="location.reload()" class="mt-4 text-sm text-baby-pink-deep underline cursor-pointer">重试</button>
-            </div>
-        `;
+        // 如果没有缓存且请求失败，才显示错误
+        if (!cachedTimeline) {
+            loading.innerHTML = `
+                <div class="text-center py-10">
+                    <p class="text-rose-500 font-medium">加载失败: ${err.message}</p>
+                    <button onclick="location.reload()" class="mt-4 text-sm text-baby-pink-deep underline cursor-pointer">重试</button>
+                </div>
+            `;
+        }
     }
 }
 
 async function fetchTimelinePage(page, search = '', type = 'all') {
-    return await apiRequest(`/timeline?page=${page}&limit=${pageSize}&search=${encodeURIComponent(search)}&type=${type}`);
+    const sortParam = `&sort=${currentSort}`;
+    const excludeParam = isHidePending ? `&exclude_pending=true` : '';
+    return await apiRequest(`/timeline?page=${page}&limit=${pageSize}&search=${encodeURIComponent(search)}&type=${type}${sortParam}${excludeParam}`);
 }
 
 function renderEmptyState(container) {
@@ -77,23 +145,49 @@ function renderEmptyState(container) {
 
 function initFilters() {
     const searchInput = document.getElementById('search-input');
+    const searchClear = document.getElementById('search-clear');
+    const searchConfirm = document.getElementById('search-confirm');
     const typeFilter = document.getElementById('type-filter');
 
-    // 防抖处理搜索
-    let debounceTimer;
+    const doSearch = () => {
+        currentSearch = searchInput ? searchInput.value : '';
+        resetAndReload();
+    };
+
     if (searchInput) {
+        // 监听回车键
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                doSearch();
+            }
+        });
+        
+        // 监听输入，控制清空按钮显示
         searchInput.addEventListener('input', (e) => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                currentSearch = e.target.value;
-                resetAndReload();
-            }, 500);
+            if (e.target.value.length > 0) {
+                searchClear?.classList.remove('hidden');
+            } else {
+                searchClear?.classList.add('hidden');
+            }
         });
     }
+
+    if (searchClear) {
+        searchClear.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            searchClear.classList.add('hidden');
+            doSearch();
+        });
+    }
+
+    if (searchConfirm) {
+        searchConfirm.addEventListener('click', doSearch);
+    }
+
     if (typeFilter) {
         typeFilter.addEventListener('change', (e) => {
             currentType = e.target.value;
-            resetAndReload();
+            doSearch();
         });
     }
 }
@@ -168,6 +262,13 @@ async function loadMore() {
             
             timelineEntries = [...timelineEntries, ...data];
             currentPage = nextPage;
+            
+            // 追加到缓存
+            try {
+                localStorage.setItem('timeline_cache_data', JSON.stringify(timelineEntries));
+            } catch (e) {
+                console.warn('Cache quota exceeded:', e);
+            }
             
             if(window.lucide) lucide.createIcons();
             
@@ -501,6 +602,37 @@ window.loadTimeline = loadTimeline;
 window.deleteEntryItem = deleteEntryItem;
 window.scrollToEntry = scrollToEntry;
 window.toggleMilestones = toggleMilestones;
+window.toggleSort = toggleSort;
+window.togglePendingFilter = togglePendingFilter;
+
+function toggleSort() {
+    currentSort = currentSort === 'desc' ? 'asc' : 'desc';
+    updateSortUI();
+    resetAndReload();
+}
+
+function updateSortUI() {
+    const icon = document.getElementById('sort-icon');
+    const label = document.getElementById('sort-label');
+    if (icon && label) {
+        if (currentSort === 'desc') {
+            icon.setAttribute('data-lucide', 'arrow-down');
+            label.textContent = '时间倒序';
+        } else {
+            icon.setAttribute('data-lucide', 'arrow-up');
+            label.textContent = '时间正序';
+        }
+        if(window.lucide) lucide.createIcons();
+    }
+}
+
+function togglePendingFilter() {
+    const checkbox = document.getElementById('hide-pending-check');
+    if (checkbox) {
+        isHidePending = checkbox.checked;
+        resetAndReload();
+    }
+}
 
 // 移动端操作逻辑
 function handleCardClick(event, id) {

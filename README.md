@@ -22,26 +22,25 @@ Baby Timeline 是一个极简、隐私优先的宝宝成长记录系统，用于
 - 家庭私有密码
 - 无注册、无需手机号
 - 无外部第三方登录
-- 完全静态部署 + Workers API
+- **R2 代理模式**：照片通过后端代理访问，不暴露真实存储地址，确保绝对安全。
 
-### 📸 3. 上传照片、写一句日记
+### 📸 3. 丰富的记录方式
 
-- 上传宝宝的每日瞬间
-- 填写一句文字记录当天心情
-- 按日期自动排序显示在时间线中
+- **每日瞬间**：上传照片，写一句日记，按日期自动排序。
+- **成长勋章**：预设或自定义里程碑（如“第一次叫妈妈”），点亮宝宝的每一个成就。
+- **成长计划**：为宝宝设定未来的期待，记录待达成的美好愿景。
 
-### 🤖 4. AI 自动日记（可选）
+### 🎨 4. 多样的展示视图
+
+- **时间线**：以时间为主轴，自动串联起宝宝的每一天。
+- **星河画廊**：3D 视差效果的照片墙，沉浸式回顾美好回忆。
+- **拍立得导出**：将精彩瞬间生成精美的拍立得风格卡片，支持编辑和下载分享。
+
+### 🤖 5. AI 辅助（可选）
 
 - AI 自动生成 20–50 字的一句话日记
 - 温柔、轻巧、适合宝宝成长记录
 - 父母可以编辑后再保存
-- 完全可控，不强制依赖 AI
-
-### 📅 5. 时间线展示
-
-- 以时间为主轴的记录方式
-- 不用分类、不用整理
-- 自动按照日期展示
 
 ------
 
@@ -59,9 +58,9 @@ Baby Timeline 是一个极简、隐私优先的宝宝成长记录系统，用于
 ### **后端**
 
 - Cloudflare Workers（TypeScript）
-- Cloudflare D1（SQLite）存储照片记录
-- Cloudflare R2（云端对象存储，MVP 使用占位逻辑）
-- 简单 Token 鉴权（基于访问密码）
+- Cloudflare D1（SQLite）存储元数据（日记、里程碑状态）
+- Cloudflare R2（云端对象存储）存储照片
+- **安全代理层**：Worker 作为中间件验证 Token 并流式传输 R2 文件
 
 ### **AI**
 
@@ -75,39 +74,37 @@ Baby Timeline 是一个极简、隐私优先的宝宝成长记录系统，用于
 ```
 baby-timeline/
 ├─ public/
-│  ├─ index.html
-│  ├─ timeline.html
-│  ├─ plan.html
-│  ├─ complete.html
-│  ├─ record.html
+│  ├─ index.html        # 首页
+│  ├─ login.html        # 登录页
+│  ├─ timeline.html     # 时间线主页
+│  ├─ record.html       # 记录瞬间（上传页）
+│  ├─ milestones.html   # 成长勋章馆
+│  ├─ plan.html         # 设置期待（新建里程碑）
+│  ├─ photos.html       # 星河画廊（照片墙）
+│  ├─ polaroid.html     # 拍立得导出页
+│  ├─ detail.html       # 日记详情页
+│  ├─ complete.html     # 达成勋章页
 │  ├─ assets/
-│  │  └─ styles.css
+│  │  └─ style.css      # 编译后的 Tailwind 样式
 │  └─ js/
-│     ├─ api.js
-│     ├─ auth.js
-│     ├─ timeline.js
-│     ├─ plan.js
-│     ├─ complete.js
-│     └─ record.js
+│     ├─ api.js         # API 请求封装
+│     ├─ auth.js        # 鉴权逻辑
+│     ├─ timeline.js    # 时间线逻辑
+│     ├─ milestones.js  # 里程碑逻辑
+│     ├─ photos.js      # 画廊逻辑
+│     ├─ polaroid.js    # 拍立得生成逻辑
+│     └─ ...
 │
 ├─ src/
-│  └─ input.css
+│  └─ input.css         # Tailwind 输入文件
 │
 ├─ worker/
 │  ├─ src/
-│  │  ├─ index.ts
-│  │  ├─ types.ts
-│  │  ├─ routes/
-│  │  │  ├─ auth.ts
-│  │  │  ├─ timeline.ts
-│  │  │  ├─ upload.ts
-│  │  │  └─ ai.ts
-│  │  ├─ db/
-│  │  │  ├─ schema.sql
-│  │  │  └─ photos.ts
-│  │  └─ ai/diary.ts
-│  ├─ package.json
-│  └─ tsconfig.json
+│  │  ├─ index.ts       # 路由入口
+│  │  ├─ routes/        # 业务路由 (auth, timeline, media, upload)
+│  │  ├─ db/            # 数据库操作
+│  │  └─ r2.ts          # R2 存储封装
+│  └─ wrangler.toml     # Worker 配置
 │
 ├─ package.json
 └─ README.md
@@ -118,41 +115,29 @@ baby-timeline/
 ## 🚀 功能流程（MVP）
 
 ### ✔ 登录
-
 1. 家长输入访问密码
 2. 后端验证
 3. 返回 token（存 localStorage）
 
-------
+### ✔ 记录成长
+1. **日常记录**：上传照片 -> AI 生成/手写日记 -> 保存至时间线。
+2. **设定期待**：创建“待达成”的里程碑（如：第一次走路），设定预期时间。
+3. **点亮勋章**：当宝宝完成里程碑时，上传照片点亮勋章，记录实际达成时间。
 
-### ✔ 上传照片记录
-
-1. 选择照片（MVP 仅记录 fileName）
-2. 输入日期
-3. 可点击 AI 自动生成一句日记
-4. 用户可编辑日记内容
-5. 保存后跳转时间线
-
-------
-
-### ✔ 时间线展示
-
-- 加载 `photos` 数据
-- 按日期倒序排序
-- 渲染卡片（日期 + 占位图片 + 日记）
-- 后续可扩展真实图片 URL、瀑布流、相册等
+### ✔ 回顾与分享
+- **时间线**：倒序查看所有日记和里程碑。
+- **画廊模式**：沉浸式浏览所有照片。
+- **拍立得**：选择一张照片，生成精美卡片，保存到本地或分享给亲友。
 
 ------
 
-## 🔮 未来计划（非 MVP）
+## 🔮 未来计划
 
-以下功能将在 MVP 验证通过后考虑：
+以下功能将在后续版本考虑：
 
 - 支持多宝宝 / 多家庭空间
 - 自定义域名（如：**babyname.me**）
 - 自动生成 AI 年度成长视频
-- 真正的 R2 文件上传流程
-- 照片墙模式（grid / masonry）
 - 视频记录支持
 - 家人留言/祝福
 - 家庭账号体系（父母、爷爷奶奶、朋友）
@@ -170,17 +155,7 @@ baby-timeline/
 
 的项目。
 
-所以：
-
-### 我们刻意保持简单：
-
-| 不做（现在）          | 原因               |
-| --------------------- | ------------------ |
-| 多用户登录            | 增加复杂度、不必要 |
-| 社交分享/公开         | 有隐私风险         |
-| 强制 AI               | 不需要强依赖       |
-| 批量上传/压缩         | MVP 不需要         |
-| 大型框架（Vue/React） | 过度工程           |
+Baby Timeline 不是为了互联网，而是为了家人。
 
 ------
 
@@ -194,7 +169,6 @@ npm run dev   # 监听 Tailwind CLI
 另外：
 
 ```sh
-cd worker
 npx wrangler dev
 ```
 
@@ -208,27 +182,24 @@ http://localhost:8787
 
 ## 🌐 部署方式
 
-1. 将 `/public` 上传到 Cloudflare Pages
-2. 将 Worker 部署为 API 并绑定到同一域名
-3. 配置 D1 数据库迁移
-4. 配置 R2（若需要）
-5. 设置访问密码和 AI_KEY 环境变量
+得益于 Cloudflare Workers 的静态资源托管（Assets）功能，你只需要部署 Worker 即可。
 
-即可上线一个完整的宝宝成长记录网站。
+1. **准备资源**：
+   - 在 Supabase 创建数据库（参考 `worker/src/db/schema.sql` 建表）。
+   - 在 Cloudflare 创建 R2 存储桶 `baby-timeline-media`。
 
-------
+2. **配置密钥**：
+   ```sh
+   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+   npx wrangler secret put FAMILY_TOKEN
+   ```
 
-## ❤️ 为什么做这个项目？
+3. **一键部署**：
+   ```sh
+   npx wrangler deploy
+   ```
 
-因为：
-
-- 每一个宝宝都值得一个独立的成长空间
-- 每一个瞬间都值得被安全保存
-- 每一个家庭都值得隐私和掌控权
-- 每一张照片背后都有不可替代的故事
-- 市面上缺乏**不社交、不商业、不打扰**的成长记录工具
-
-Baby Timeline 不是为了互联网，而是为了家人。
+Worker 会自动处理 API 请求并托管 `/public` 目录下的所有静态文件，无需单独部署 Pages。
 
 ------
 
@@ -241,4 +212,3 @@ Baby Timeline 不是为了互联网，而是为了家人。
 - 想参与后续方向设计
 
 欢迎随时提出建议。
-

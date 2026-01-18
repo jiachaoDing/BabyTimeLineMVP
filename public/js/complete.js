@@ -14,6 +14,8 @@ const submitBtn = document.getElementById('submit-btn');
 // --- 状态管理 ---
 const urlParams = new URLSearchParams(window.location.search);
 const editId = urlParams.get('id');
+// 记录进入此页面的前一个路径 (用于保存后返回)
+const previousPath = document.referrer;
 
 async function init() {
     if (!editId) {
@@ -152,7 +154,12 @@ uploadForm.addEventListener('submit', async (e) => {
         lucide.createIcons();
         
         setTimeout(() => {
-            window.location.href = 'milestones.html';
+            // 优先返回上一页，如果上一页存在且属于本站（非登录页）
+            if (previousPath && previousPath.includes(window.location.host) && !previousPath.includes('login')) {
+                window.location.href = previousPath;
+            } else {
+                window.location.href = 'milestones.html';
+            }
         }, 800);
 
     } catch (err) {

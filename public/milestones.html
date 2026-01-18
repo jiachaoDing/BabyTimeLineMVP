@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>成长勋章馆 - 宝宝成长记录</title>
+    <title>成长勋章馆 - 云舒成长记录</title>
     <link href="css/style.css" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -35,6 +35,15 @@
         .milestone-card:hover .milestone-glow {
             opacity: 1;
         }
+
+        /* 移动端点击遮罩动画 */
+        @keyframes fadeInFast {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in-fast {
+            animation: fadeInFast 0.2s ease-out forwards;
+        }
     </style>
 </head>
 <body class="bg-baby-bg bg-grid-pattern min-h-screen text-slate-700">
@@ -53,7 +62,7 @@
         <header class="text-center mb-16 relative">
             <div class="inline-block relative">
                 <h1 class="text-4xl font-extrabold text-slate-800 tracking-tight relative z-10">
-                    勋章成就馆 🏆
+                    云舒的勋章成就馆 🏆
                 </h1>
                 <div class="absolute -bottom-2 left-0 w-full h-4 bg-baby-yellow/60 -rotate-1 -z-0 rounded-sm"></div>
             </div>
