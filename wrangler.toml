@@ -2,6 +2,11 @@ name = "baby-timeline-worker"
 main = "worker/src/index.ts"
 compatibility_date = "2025-09-06"
 
+# 自定义域名配置
+routes = [
+	{ pattern = "zouyunshu.com", custom_domain = true }
+]
+
 # 静态资源配置，使 Worker 可以直接服务 public 目录下的前端文件
 [assets]
 directory = "public"

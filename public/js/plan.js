@@ -16,6 +16,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const editId = urlParams.get('id');
 
 let existingMediaCount = 0;
+let selectedFiles = []; // 存储新选择的文件
 
 async function init() {
     if (editId) {
@@ -49,6 +50,7 @@ async function loadExistingData() {
 
         // 渲染旧照片 (示例图)
         if (entry.media && entry.media.length > 0) {
+            previewContainer.innerHTML = ''; // 清空可能存在的旧内容
             existingMediaCount = entry.media.length;
             entry.media.forEach((m, index) => {
                 renderPhotoCard(m.url, m.id, index);
@@ -59,61 +61,87 @@ async function loadExistingData() {
         
     } catch (err) {
         console.error('Load data failed:', err);
-        alert('加载数据失败: ' + err.message);
+        showToast('加载数据失败: ' + err.message, 'error');
     }
 }
 
 // 渲染照片卡片
-function renderPhotoCard(url, mediaId = null, index = 0) {
+function renderPhotoCard(url, mediaId = null, index = 0, fileObj = null) {
     const rotate = (index % 2 === 0 ? '-rotate-2' : 'rotate-2');
     const polaroid = document.createElement('div');
-    polaroid.className = `polaroid-preview w-32 sm:w-40 ${rotate} transform transition-all relative group/photo`;
+    polaroid.className = `polaroid-preview w-32 sm:w-40 ${rotate} transform transition-all relative group/photo cursor-pointer`;
     
-    let deleteHtml = '';
-    if (mediaId) {
-        deleteHtml = `
-            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center z-30">
-                <button type="button" onclick="deleteExistingPhoto(${mediaId}, this)" class="bg-rose-500 text-white p-2 rounded-full hover:scale-110 transition-transform shadow-lg">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
-            </div>
-        `;
-    }
+    // 点击事件
+    polaroid.onclick = () => handlePhotoClick(mediaId, fileObj, polaroid);
 
     polaroid.innerHTML = `
-        <div class="aspect-square bg-slate-100 overflow-hidden mb-2 relative">
+        <div class="aspect-square bg-slate-100 overflow-hidden mb-2 relative pointer-events-none">
             <img src="${url}" class="w-full h-full object-cover">
-            ${deleteHtml}
+             <div class="absolute inset-0 bg-black/0 group-hover/photo:bg-black/10 transition-colors flex items-center justify-center">
+                <div class="opacity-0 group-hover/photo:opacity-100 bg-red-500/80 text-white rounded-full p-2 transform scale-75 group-hover/photo:scale-100 transition-all">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </div>
+            </div>
         </div>
     `;
     previewContainer.appendChild(polaroid);
     if(window.lucide) lucide.createIcons();
 }
 
-// 删除旧照片
-async function deleteExistingPhoto(mediaId, btn) {
-    if (!confirm('确定要永久删除这张示例照片吗？')) return;
+// 处理照片点击（删除）
+async function handlePhotoClick(mediaId, fileObj, element) {
+    const confirmed = await showConfirm({
+        title: '删除照片',
+        message: '确定要删除这张照片吗？',
+        type: 'danger'
+    });
     
+    if (!confirmed) return;
+
+    if (mediaId) {
+        // 删除已存在的照片
+        await deleteExistingPhoto(mediaId, element);
+    } else if (fileObj) {
+        // 删除新添加的照片
+        deleteNewPhoto(fileObj, element);
+    }
+}
+
+// 删除新照片
+function deleteNewPhoto(fileObj, element) {
+    const idx = selectedFiles.indexOf(fileObj);
+    if (idx > -1) {
+        selectedFiles.splice(idx, 1);
+        element.remove();
+        
+        // 如果没有照片了，显示上传区域
+        if (existingMediaCount === 0 && selectedFiles.length === 0) {
+            uploadArea.classList.remove('hidden');
+            previewArea.classList.add('hidden');
+        }
+    }
+}
+
+// 删除旧照片
+async function deleteExistingPhoto(mediaId, element) {
     try {
-        const originalHtml = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>';
-        lucide.createIcons();
+        // 由于点击的是整个卡片，我们可以在 UI 上给点反馈，比如变灰
+        element.style.opacity = '0.5';
+        element.style.pointerEvents = 'none';
 
         await apiRequest(`/media/${mediaId}`, { method: 'DELETE' });
         
-        btn.closest('.polaroid-preview').remove();
+        element.remove();
         existingMediaCount--;
         
-        if (existingMediaCount === 0 && fileInput.files.length === 0) {
+        if (existingMediaCount === 0 && selectedFiles.length === 0) {
             uploadArea.classList.remove('hidden');
             previewArea.classList.add('hidden');
         }
     } catch (err) {
-        alert('删除失败: ' + err.message);
-        btn.disabled = false;
-        btn.innerHTML = originalHtml;
-        lucide.createIcons();
+        showToast('删除失败: ' + err.message, 'error');
+        element.style.opacity = '1';
+        element.style.pointerEvents = 'auto';
     }
 }
 window.deleteExistingPhoto = deleteExistingPhoto;
@@ -129,42 +157,30 @@ if (addMoreBtn) {
 fileInput.addEventListener('change', function(e) {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
-        if (!editId || (existingMediaCount === 0 && previewContainer.children.length === 0)) {
-            previewContainer.innerHTML = '';
-        }
-        
-        files.forEach((file, index) => {
+        files.forEach((file) => {
+            selectedFiles.push(file); // 添加到全局数组
             const reader = new FileReader();
             reader.onload = function(event) {
-                renderPhotoCard(event.target.result, null, index + existingMediaCount);
+                renderPhotoCard(event.target.result, null, existingMediaCount + selectedFiles.length, file);
             }
             reader.readAsDataURL(file);
         });
         
         uploadArea.classList.add('hidden');
         previewArea.classList.remove('hidden');
+        
+        fileInput.value = ''; // 清空 input
     }
 });
 
 // 重新选择
 reselectBtn.addEventListener('click', function() {
+    selectedFiles = [];
+    fileInput.value = '';
+    
     if (editId) {
-        fileInput.value = '';
-        const cards = previewContainer.querySelectorAll('.polaroid-preview');
-        cards.forEach(card => {
-            if (!card.querySelector('button[onclick^="deleteExistingPhoto"]')) {
-                card.remove();
-            }
-        });
-        if (existingMediaCount > 0) {
-            uploadArea.classList.add('hidden');
-            previewArea.classList.remove('hidden');
-        } else {
-            uploadArea.classList.remove('hidden');
-            previewArea.classList.add('hidden');
-        }
+        loadExistingData(); // 重新加载以恢复旧状态
     } else {
-        fileInput.value = ''; 
         previewContainer.innerHTML = '';
         uploadArea.classList.remove('hidden');
         previewArea.classList.add('hidden');
@@ -180,6 +196,13 @@ uploadForm.addEventListener('submit', async (e) => {
     // 如果内容为空，填充默认值
     if (!formData.get('content')) {
         formData.set('content', '期待达成这个精彩瞬间 ✨');
+    }
+
+    // 修复时区问题：构造 ISO UTC 时间字符串覆盖 FormData
+    const userDateVal = document.getElementById('date').value;
+    if (userDateVal) {
+        const d = new Date(userDateVal);
+        formData.set('date', d.toISOString());
     }
 
     // 压缩图片辅助函数
@@ -212,7 +235,8 @@ uploadForm.addEventListener('submit', async (e) => {
 
     try {
         // 预处理：压缩所有选中的图片
-        const rawFiles = Array.from(fileInput.files);
+        // const rawFiles = Array.from(fileInput.files);
+        const rawFiles = selectedFiles; // NEW
         const compressedFiles = await Promise.all(rawFiles.map(file => compressImage(file)));
 
         if (editId) {
@@ -279,7 +303,7 @@ uploadForm.addEventListener('submit', async (e) => {
 
     } catch (err) {
         console.error('Operation failed:', err);
-        alert('保存失败: ' + err.message);
+        showToast('保存失败: ' + err.message, 'error');
         submitBtn.innerHTML = originalContent;
         lucide.createIcons();
     } finally {

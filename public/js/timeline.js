@@ -10,8 +10,8 @@ let isLoading = false;
 let hasMore = true;
 let currentSearch = '';
 let currentType = 'all';
-let currentSort = 'desc';
-let isHidePending = false;
+let currentSort = new URLSearchParams(window.location.search).get('sort') || 'asc';
+let isHidePending = new URLSearchParams(window.location.search).get('hide_pending') === 'true';
 
 async function loadTimeline() {
     const loading = document.getElementById('loading');
@@ -24,11 +24,38 @@ async function loadTimeline() {
         document.addEventListener('header-loaded', initFilters);
     }
     
+    // 初始化 UI 状态
+    updateSortUI();
+    const pendingCheck = document.getElementById('hide-pending-check');
+    if (pendingCheck) {
+        pendingCheck.checked = isHidePending;
+    } else {
+        // 如果元素还没加载（比如在 header 中），等待加载
+        document.addEventListener('header-loaded', () => {
+             const check = document.getElementById('hide-pending-check');
+             if (check) check.checked = isHidePending;
+        });
+    }
+
     // 1. 尝试优先加载本地缓存 (极速屏显)
     const cachedTimeline = localStorage.getItem('timeline_cache_data');
     const cachedMilestones = localStorage.getItem('milestone_cache_data');
+    const cachedParams = localStorage.getItem('timeline_cache_params');
     
-    if (cachedTimeline && cachedMilestones) {
+    // 检查缓存的参数是否与当前一致
+    let isCacheValid = false;
+    if (cachedParams) {
+        try {
+            const params = JSON.parse(cachedParams);
+            if (params.sort === currentSort && params.hidePending === isHidePending) {
+                isCacheValid = true;
+            }
+        } catch (e) {
+            console.warn('Cache params parse failed:', e);
+        }
+    }
+
+    if (cachedTimeline && cachedMilestones && isCacheValid) {
         try {
             const parsedTimeline = JSON.parse(cachedTimeline);
             const parsedMilestones = JSON.parse(cachedMilestones);
@@ -54,8 +81,8 @@ async function loadTimeline() {
         const lastUpdated = syncRes.last_updated;
         const localLastUpdated = localStorage.getItem('timeline_last_updated');
         
-        // 如果本地有缓存且时间戳一致，直接使用缓存
-        if (cachedTimeline && lastUpdated && lastUpdated === localLastUpdated) {
+        // 如果本地有缓存且时间戳一致且参数一致，直接使用缓存
+        if (cachedTimeline && lastUpdated && lastUpdated === localLastUpdated && isCacheValid) {
             console.log('Timeline is up-to-date');
             loading.style.display = 'none';
             // 确保 DOM 已渲染 (如果刚才缓存渲染失败了)
@@ -85,6 +112,10 @@ async function loadTimeline() {
         // 4. 写入缓存和新的时间戳 (重置缓存)
         localStorage.setItem('timeline_cache_data', JSON.stringify(firstPage));
         localStorage.setItem('milestone_cache_data', JSON.stringify(milestones));
+        localStorage.setItem('timeline_cache_params', JSON.stringify({
+            sort: currentSort,
+            hidePending: isHidePending
+        }));
         if (lastUpdated) {
             localStorage.setItem('timeline_last_updated', lastUpdated);
         }
@@ -569,16 +600,49 @@ function renderEntry(entry, index) {
 }
 
 async function deleteEntryItem(id) {
-    if (!confirm('确定要删除这个瞬间吗？此操作将同时删除关联的照片，且无法撤销。')) {
-        return;
-    }
+    const confirmed = await showConfirm({
+        title: '删除确认',
+        message: '确定要删除这个瞬间吗？此操作将同时删除关联的照片，且无法撤销。',
+        confirmText: '确认删除',
+        type: 'danger'
+    });
+    
+    if (!confirmed) return;
 
     try {
         await apiRequest(`/entry/${id}`, {
             method: 'DELETE'
         });
         
-        // 动画效果删除 DOM 元素
+        // 1. 同步更新内存中的数据
+        timelineEntries = timelineEntries.filter(e => e.id !== id);
+        allMilestones = allMilestones.filter(e => e.id !== id);
+
+        // 2. 同步更新本地缓存
+        try {
+            // 更新时光轴缓存
+            const cachedTimelineStr = localStorage.getItem('timeline_cache_data');
+            if (cachedTimelineStr) {
+                const cachedTimeline = JSON.parse(cachedTimelineStr);
+                const updatedTimeline = cachedTimeline.filter(e => e.id !== id);
+                localStorage.setItem('timeline_cache_data', JSON.stringify(updatedTimeline));
+            }
+            
+            // 更新里程碑缓存
+            const cachedMilestoneStr = localStorage.getItem('milestone_cache_data');
+            if (cachedMilestoneStr) {
+                const cachedMilestones = JSON.parse(cachedMilestoneStr);
+                const updatedMilestones = cachedMilestones.filter(e => e.id !== id);
+                localStorage.setItem('milestone_cache_data', JSON.stringify(updatedMilestones));
+            }
+        } catch (e) {
+            console.warn('Update cache failed:', e);
+            // 如果缓存处理出错，干脆清除缓存，让下次刷新强制拉取
+            localStorage.removeItem('timeline_cache_data');
+            localStorage.removeItem('milestone_cache_data');
+        }
+
+        // 3. 动画效果删除 DOM 元素
         const element = document.getElementById(`entry-${id}`);
         if (element) {
             element.classList.add('transition-all', 'duration-500', 'opacity-0', '-translate-y-4');
@@ -587,13 +651,16 @@ async function deleteEntryItem(id) {
                 // 检查是否为空，如果为空则重新加载显示“种子”提示
                 const container = document.getElementById('timeline-container');
                 if (container && !container.querySelector('[id^="entry-"]')) {
-                    loadTimeline();
+                    loadTimeline(); // 如果删光了，刷新一下显示空状态
+                } else {
+                    // 如果删的是里程碑，可能还需要刷新一下顶部的勋章墙
+                    renderMilestoneWall(allMilestones);
                 }
             }, 500);
         }
     } catch (err) {
         console.error('Delete failed:', err);
-        alert('删除失败: ' + err.message);
+        showToast('删除失败: ' + err.message, 'error');
     }
 }
 
@@ -607,6 +674,11 @@ window.togglePendingFilter = togglePendingFilter;
 
 function toggleSort() {
     currentSort = currentSort === 'desc' ? 'asc' : 'desc';
+    
+    const url = new URL(window.location);
+    url.searchParams.set('sort', currentSort);
+    window.history.replaceState({}, '', url);
+
     updateSortUI();
     resetAndReload();
 }
@@ -630,6 +702,15 @@ function togglePendingFilter() {
     const checkbox = document.getElementById('hide-pending-check');
     if (checkbox) {
         isHidePending = checkbox.checked;
+        
+        const url = new URL(window.location);
+        if (isHidePending) {
+            url.searchParams.set('hide_pending', 'true');
+        } else {
+            url.searchParams.delete('hide_pending');
+        }
+        window.history.replaceState({}, '', url);
+
         resetAndReload();
     }
 }

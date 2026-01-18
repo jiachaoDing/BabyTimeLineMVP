@@ -17,9 +17,11 @@ const editId = urlParams.get('id');
 // 记录进入此页面的前一个路径 (用于保存后返回)
 const previousPath = document.referrer;
 
+let selectedFiles = []; // 存储新选择的文件
+
 async function init() {
     if (!editId) {
-        alert('参数错误');
+        await showAlert('参数错误', '错误');
         window.location.href = 'milestones.html';
         return;
     }
@@ -48,22 +50,61 @@ async function loadExistingData() {
         
     } catch (err) {
         console.error('Load data failed:', err);
-        alert('加载数据失败: ' + err.message);
+        showToast('加载数据失败: ' + err.message, 'error');
     }
 }
 
 // 渲染照片卡片
-function renderPhotoCard(url, index = 0) {
+function renderPhotoCard(url, index = 0, fileObj = null) {
     const rotate = (index % 2 === 0 ? '-rotate-2' : 'rotate-2');
     const polaroid = document.createElement('div');
-    polaroid.className = `polaroid-preview w-32 sm:w-40 ${rotate} transform transition-all relative group/photo`;
+    polaroid.className = `polaroid-preview w-32 sm:w-40 ${rotate} transform transition-all relative group/photo cursor-pointer`;
     
+    // 点击事件
+    polaroid.onclick = () => handlePhotoClick(fileObj, polaroid);
+
     polaroid.innerHTML = `
-        <div class="aspect-square bg-slate-100 overflow-hidden mb-2 relative">
+        <div class="aspect-square bg-slate-100 overflow-hidden mb-2 relative pointer-events-none">
             <img src="${url}" class="w-full h-full object-cover">
+             <div class="absolute inset-0 bg-black/0 group-hover/photo:bg-black/10 transition-colors flex items-center justify-center">
+                <div class="opacity-0 group-hover/photo:opacity-100 bg-red-500/80 text-white rounded-full p-2 transform scale-75 group-hover/photo:scale-100 transition-all">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </div>
+            </div>
         </div>
     `;
     previewContainer.appendChild(polaroid);
+    if(window.lucide) lucide.createIcons();
+}
+
+// 处理照片点击（删除）
+async function handlePhotoClick(fileObj, element) {
+    const confirmed = await showConfirm({
+        title: '删除照片',
+        message: '确定要移除这张照片吗？',
+        type: 'danger'
+    });
+    
+    if (!confirmed) return;
+
+    if (fileObj) {
+        deleteNewPhoto(fileObj, element);
+    }
+}
+
+// 删除新照片
+function deleteNewPhoto(fileObj, element) {
+    const idx = selectedFiles.indexOf(fileObj);
+    if (idx > -1) {
+        selectedFiles.splice(idx, 1);
+        element.remove();
+        
+        // 如果没有照片了，显示上传区域
+        if (selectedFiles.length === 0) {
+            uploadArea.classList.remove('hidden');
+            previewArea.classList.add('hidden');
+        }
+    }
 }
 
 // 继续添加按钮
@@ -77,22 +118,26 @@ if (addMoreBtn) {
 fileInput.addEventListener('change', function(e) {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
-        previewContainer.innerHTML = '';
-        files.forEach((file, index) => {
+        // previewContainer.innerHTML = ''; // 不要清空，支持追加
+        files.forEach((file) => {
+            selectedFiles.push(file);
             const reader = new FileReader();
             reader.onload = function(event) {
-                renderPhotoCard(event.target.result, index);
+                renderPhotoCard(event.target.result, selectedFiles.length, file);
             }
             reader.readAsDataURL(file);
         });
         
         uploadArea.classList.add('hidden');
         previewArea.classList.remove('hidden');
+
+        fileInput.value = ''; // 清空
     }
 });
 
 // 重新选择图片
 reselectBtn.addEventListener('click', function() {
+    selectedFiles = [];
     fileInput.value = ''; 
     previewContainer.innerHTML = '';
     uploadArea.classList.remove('hidden');
@@ -105,6 +150,13 @@ uploadForm.addEventListener('submit', async (e) => {
     
     const formData = new FormData(uploadForm);
     
+    // 修复时区问题：构造 ISO UTC 时间字符串覆盖 FormData
+    const userDateVal = document.getElementById('date').value;
+    if (userDateVal) {
+        const d = new Date(userDateVal);
+        formData.set('date', d.toISOString());
+    }
+
     // 按钮 Loading 态
     submitBtn.setAttribute('aria-busy', 'true');
     submitBtn.disabled = true;
@@ -132,11 +184,12 @@ uploadForm.addEventListener('submit', async (e) => {
         });
 
         // 2. 上传新照片
-        if (fileInput.files.length > 0) {
+        if (selectedFiles.length > 0) {
             const uploadFormData = new FormData();
             uploadFormData.append('entry_id', editId);
-            Array.from(fileInput.files).forEach(file => {
-                uploadFormData.append('file', file);
+            // Array.from(fileInput.files).forEach(file => { // OLD
+            selectedFiles.forEach(file => { // NEW
+                uploadFormData.append('file', file, file.name);
             });
             await apiRequest('/upload', {
                 method: 'POST',
@@ -164,7 +217,7 @@ uploadForm.addEventListener('submit', async (e) => {
 
     } catch (err) {
         console.error('Operation failed:', err);
-        alert('保存失败: ' + err.message);
+        showToast('保存失败: ' + err.message, 'error');
         submitBtn.innerHTML = originalContent;
         lucide.createIcons();
     } finally {

@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const initialUrl = params.get('url');
 
     if (!initialUrl) {
-        alert('未找到图片信息');
+        await showAlert('未找到图片信息', '提示');
         window.location.href = 'photos.html';
         return;
     }
@@ -359,9 +359,9 @@ function initExportLogic() {
             }
 
         } catch (err) {
-            console.error('Export failed:', err);
-            alert('导出失败，请尝试截图保存');
-        } finally {
+        console.error('Export failed:', err);
+        showToast('导出失败，请尝试截图保存', 'error');
+    } finally {
             downloadBtn.disabled = false;
             downloadBtn.innerHTML = originalText;
             if (window.lucide) lucide.createIcons();

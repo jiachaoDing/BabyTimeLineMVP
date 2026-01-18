@@ -118,21 +118,31 @@ export async function handleDeleteEntry(request: Request, env: Env): Promise<Res
   }
 
   try {
-    // 1. 先查找关联的媒体文件以便从 R2 删除
+    // 1. 先查找关联的媒体文件，保存 R2 Key 到内存，以便稍后删除
     const mediaList = await selectMediaByEntries(env, [id]);
     
-    // 2. 从 R2 删除物理文件
-    for (const media of mediaList) {
-      if (media.r2_key) {
-        await deleteObject(env, media.r2_key);
-      }
-    }
-
-    // 3. 从 Supabase 删除媒体元数据
+    // 2. 优先删除数据库记录 (确保业务数据一致性，防止"文件删了但记录还在"的情况)
+    // 先删子表 (虽然后端可能有级联删除，显式删除更安全)
     await deleteMediaByEntryId(env, id);
-
-    // 4. 从 Supabase 删除条目
+    // 再删主表
     await deleteEntry(env, id);
+
+    // 3. 最后尝试从 R2 删除物理文件
+    // 即使这里失败，也不应该报错给前端，因为业务记录已经删除了
+    // 使用 Promise.all 并捕获每个删除操作的错误，防止中断
+    if (mediaList.length > 0) {
+      const deletePromises = mediaList.map(async (media) => {
+        if (media.r2_key) {
+          try {
+            await deleteObject(env, media.r2_key);
+          } catch (e) {
+            console.error(`Failed to delete R2 object ${media.r2_key}:`, e);
+            // 忽略 R2 删除错误，避免回滚数据库事务(如果有)或报错给用户
+          }
+        }
+      });
+      await Promise.all(deletePromises);
+    }
 
     return new Response(JSON.stringify({ success: true, message: 'Entry and associated media deleted' }), {
       headers: { 'Content-Type': 'application/json' }

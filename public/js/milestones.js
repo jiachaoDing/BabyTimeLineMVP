@@ -173,9 +173,12 @@ function renderGrid(list) {
 }
 
 async function deleteMilestone(id) {
-    if (!confirm('确定要删除这个勋章吗？此操作无法撤销。')) {
-        return;
-    }
+    const confirmed = await showConfirm({
+        title: '删除确认',
+        message: '确定要删除这个勋章吗？此操作无法撤销。',
+        type: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         await apiRequest(`/entry/${id}`, {
@@ -194,7 +197,7 @@ async function deleteMilestone(id) {
         }
     } catch (err) {
         console.error('Delete failed:', err);
-        alert('删除失败: ' + err.message);
+        showToast('删除失败: ' + err.message, 'error');
     }
 }
 

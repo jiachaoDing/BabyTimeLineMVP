@@ -76,13 +76,17 @@ export async function handleDeleteMedia(request: Request, env: Env): Promise<Res
       });
     }
 
-    // 2. 从 R2 删除物理文件
-    if (media.r2_key) {
-      await deleteObject(env, media.r2_key);
-    }
-
-    // 3. 从数据库删除记录
+    // 2. 优先从数据库删除记录
     await deleteMedia(env, id);
+
+    // 3. 最后从 R2 删除物理文件 (忽略错误)
+    if (media.r2_key) {
+      try {
+        await deleteObject(env, media.r2_key);
+      } catch (e) {
+        console.error(`Failed to delete R2 object ${media.r2_key}:`, e);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true, message: 'Media deleted' }), {
       headers: { 'Content-Type': 'application/json' }

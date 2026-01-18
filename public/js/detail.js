@@ -16,7 +16,7 @@ async function loadEntryDetail() {
     const id = urlParams.get('id');
     
     if (!id) {
-        alert('未找到日记 ID');
+        await showAlert('未找到日记 ID', '错误');
         location.href = 'timeline.html';
         return;
     }
@@ -101,7 +101,7 @@ function initEvents() {
 
     // 导出按钮
     document.getElementById('export-btn').addEventListener('click', () => {
-        alert('海报生成功能正在开发中...\n提示：您可以先使用浏览器的“打印 -> 另存为 PDF”或手机截屏来分享哦！');
+        showAlert('海报生成功能正在开发中...\n提示：您可以先使用浏览器的“打印 -> 另存为 PDF”或手机截屏来分享哦！', '敬请期待');
     });
 }
 
