@@ -1,214 +1,242 @@
-# Baby Timeline — A Minimal Family-Private Growth Journal
-
-**一个为家庭打造的真正私密的宝宝成长记录网站（MVP）**
-
-Baby Timeline 是一个极简、隐私优先的宝宝成长记录系统，用于记录照片、日记、时间线，帮助父母和亲友一起见证孩子的成长瞬间。
-
-它是为**真实家庭场景**而设计的，不是社交网站，不是 App，不需要注册，不需要下载。
-只需要一个密码，就能进入属于你宝宝的小世界。
+# Baby Timeline — MVP Project Overview (R2 Proxy Version)
 
 ------
 
-## ✨ 特点 Highlights
+## 🎯 1. MVP Features (Strictly Minimalist)
 
-### 🍼 1. 每个宝宝自己的独立空间
+Designed solely for internal family use with minimal functionality:
 
-- 单独访问入口
-- 不公开、不社交
-- 专属于宝宝的“成长小宇宙”
+### ✔ Must Have:
 
-### 🔒 2. 隐私优先的访问模式
+- **Single Family Password**: Token stored in frontend localStorage.
+- **Secure Access**: All photos are accessed via a Worker proxy; real R2 paths are never exposed.
+- **Photo Upload**: Support for real Cloudflare R2 uploads.
+- **Daily Journal**: One text entry per day.
+- **Timeline View**: Display entries sorted by date.
+- **Photo Wall**: A simple gallery view.
 
-- 家庭私有密码
-- 无注册、无需手机号
-- 无外部第三方登录
-- **R2 代理模式**：照片通过后端代理访问，不暴露真实存储地址，确保绝对安全。
+### ❌ Won't Do (For Now):
 
-### 📸 3. 丰富的记录方式
+- Multi-user registration/login.
+- Video uploads.
+- Thumbnail generation.
+- Multi-family support.
+- Comments/Likes.
+- Batch photo uploads.
 
-- **每日瞬间**：上传照片，写一句日记，按日期自动排序。
-- **成长勋章**：预设或自定义里程碑（如“第一次叫妈妈”），点亮宝宝的每一个成就。
-- **成长计划**：为宝宝设定未来的期待，记录待达成的美好愿景。
-
-### 🎨 4. 多样的展示视图
-
-- **时间线**：以时间为主轴，自动串联起宝宝的每一天。
-- **星河画廊**：3D 视差效果的照片墙，沉浸式回顾美好回忆。
-- **拍立得导出**：将精彩瞬间生成精美的拍立得风格卡片，支持编辑和下载分享。
-
-### 🤖 5. AI 辅助（可选）
-
-- AI 自动生成 20–50 字的一句话日记
-- 温柔、轻巧、适合宝宝成长记录
-- 父母可以编辑后再保存
+**Goal: Ready for genuine family use within one week.**
 
 ------
 
-## 🛠 技术栈 / Tech Stack
-
-整个项目遵循 **极简架构原则**，不使用复杂框架，不依赖大型构建系统。
-
-### **前端**
-
-- 原生 HTML
-- 原生 JavaScript（ES Modules）
-- Tailwind CSS v4（CLI 编译版）
-- 静态部署于 Cloudflare Pages
-
-### **后端**
-
-- Cloudflare Workers（TypeScript）
-- Cloudflare D1（SQLite）存储元数据（日记、里程碑状态）
-- Cloudflare R2（云端对象存储）存储照片
-- **安全代理层**：Worker 作为中间件验证 Token 并流式传输 R2 文件
-
-### **AI**
-
-- 可选择 OpenAI / Cloudflare AI / 其他模型
-- 生成一句温柔的成长日记文本
-
-------
-
-## 📁 项目结构 Project Structure
+## 🧩 2. Architecture (Supabase + Cloudflare R2 Proxy Mode)
 
 ```
-baby-timeline/
-├─ public/
-│  ├─ index.html        # 首页
-│  ├─ login.html        # 登录页
-│  ├─ timeline.html     # 时间线主页
-│  ├─ record.html       # 记录瞬间（上传页）
-│  ├─ milestones.html   # 成长勋章馆
-│  ├─ plan.html         # 设置期待（新建里程碑）
-│  ├─ photos.html       # 星河画廊（照片墙）
-│  ├─ polaroid.html     # 拍立得导出页
-│  ├─ detail.html       # 日记详情页
-│  ├─ complete.html     # 达成勋章页
-│  ├─ assets/
-│  │  └─ style.css      # 编译后的 Tailwind 样式
-│  └─ js/
-│     ├─ api.js         # API 请求封装
-│     ├─ auth.js        # 鉴权逻辑
-│     ├─ timeline.js    # 时间线逻辑
-│     ├─ milestones.js  # 里程碑逻辑
-│     ├─ photos.js      # 画廊逻辑
-│     ├─ polaroid.js    # 拍立得生成逻辑
-│     └─ ...
+Frontend (Static: Cloudflare Pages)
+        |
+        v
+Cloudflare Worker (API/BFF & Proxy)
+        |
+        +--> Supabase Postgres (Stores metadata: entries / media)
+        |
+        +--> Cloudflare R2 (Private storage, no public access)
+```
+
+**Security Policy:**
+- The frontend **never directly accesses** Supabase or R2.
+- Media files are proxied through the `/api/media/*` route.
+- **Authentication**:
+  - API requests use the `Authorization` Header.
+  - Image requests use a URL parameter `?token=...`.
+
+------
+
+## 🟦 3. Database Structure (Supabase Postgres)
+
+### 1. `entries` — Daily Journal
+
+```sql
+create table entries (
+  id          bigint generated always as identity primary key,
+  date        date not null,
+  title       text,
+  content     text,
+  created_at  timestamptz default now()
+);
+```
+
+### 2. `media` — Photo Metadata
+
+```sql
+create table media (
+  id          bigint generated always as identity primary key,
+  entry_id    bigint references entries(id) on delete set null,
+  r2_key      text not null,     -- Actual path in R2
+  file_type   text not null,     -- e.g., 'image'
+  taken_at    timestamptz,
+  created_at  timestamptz default now()
+);
+```
+
+------
+
+## ☁️ 4. Cloudflare R2 Storage Structure
+
+**Object Key Example:**
+`2026-01-16/1737012345-abcd12.jpg`
+
+**Naming Rule:**
+`{YYYY-MM-DD}/{timestamp}-{random}.{ext}`
+
+------
+
+## 🚦 5. API Endpoints (Worker)
+
+All API paths are accessed via `/api/...`.
+
+### 1. Login
+`POST /api/login`
+- Body: `{ "password": "..." }`
+- Response: `{ "token": "FAMILY_TOKEN" }`
+
+### 2. Get Timeline
+`GET /api/timeline`
+- Response:
+```json
+[
+  {
+    "id": 123,
+    "date": "2026-01-16",
+    "title": "Baby's Day",
+    "content": "Baby was very happy today.",
+    "media": [
+      { "id": 1, "url": "/api/media/key.jpg?token=xxxx" }
+    ]
+  }
+]
+```
+
+### 3. Media Proxy (Core Security)
+`GET /api/media/:key?token=xxxx`
+- The Worker validates the token, then streams data from the private R2 bucket.
+- Sets `Cache-Control: private` to balance privacy and performance.
+
+### 4. Upload Photos & Entries
+`POST /api/upload` (Multipart/form-data)
+- Supports creating an entry and uploading an image simultaneously.
+- Parameters: `file` (the image), `entry_id` (optional), `title` (optional), `content` (optional), `date` (optional).
+
+### 5. Create or Update Entry (Text Only)
+`POST /api/entry`
+- Body: `{ "id": 123, "title": "...", "content": "...", "date": "..." }`
+- If `id` is present, it updates; otherwise, it creates a new entry.
+
+### 6. Delete Entry
+`DELETE /api/entry/:id`
+- Deletes the entry, its associated physical files in R2, and database media records.
+
+------
+
+## 📁 6. Project Structure
+
+```
+BabyTimeLineMVP/
+├─ public/              # Frontend Static Files (Cloudflare Pages)
+│  ├─ js/
+│  │  ├─ api.js         # API Request Wrapper (Headers & Validation)
+│  │  ├─ auth.js        # Login & Token Management
+│  │  ├─ timeline.js    # Timeline Rendering
+│  │  ├─ plan.js        # "Expectations" Logic
+│  │  ├─ complete.js    # "Achievements" Logic
+│  │  └─ record.js      # Record Moments/History Logic
+│  ├─ index.html
+│  ├─ login.html
+│  ├─ timeline.html
+│  ├─ milestones.html
+│  ├─ plan.html
+│  ├─ complete.html
+│  └─ record.html
 │
-├─ src/
-│  └─ input.css         # Tailwind 输入文件
-│
-├─ worker/
+├─ worker/              # Backend Code (Cloudflare Worker)
 │  ├─ src/
-│  │  ├─ index.ts       # 路由入口
-│  │  ├─ routes/        # 业务路由 (auth, timeline, media, upload)
-│  │  ├─ db/            # 数据库操作
-│  │  └─ r2.ts          # R2 存储封装
-│  └─ wrangler.toml     # Worker 配置
-│
-├─ package.json
-└─ README.md
+│  │  ├─ index.ts       # Routing Entry & Global Auth
+│  │  ├─ r2.ts          # R2 Operation Wrapper
+│  │  ├─ supabase.ts    # Supabase REST Wrapper
+│  │  └─ routes/
+│  │     ├─ auth.ts
+│  │     ├─ timeline.ts
+│  │     ├─ upload.ts
+│  │     └─ media.ts     # Media Proxy Route
+│  ├─ wrangler.toml     # Basic Config (No Secrets)
+│  ├─ tsconfig.json     # Worker Type Config
+│  └─ package.json
 ```
 
 ------
 
-## 🚀 功能流程（MVP）
+## 🧠 7. Core Design Decisions
 
-### ✔ 登录
-1. 家长输入访问密码
-2. 后端验证
-3. 返回 token（存 localStorage）
+### ✔ Why R2 Proxy Mode?
+- **Maximum Security**: Photos are not exposed to the public internet; prevents leakage.
+- **No Custom Domain**: No need to configure a custom domain for the R2 bucket.
+- **Simple Auth**: Unified validation using `FAMILY_TOKEN`.
 
-### ✔ 记录成长
-1. **日常记录**：上传照片 -> AI 生成/手写日记 -> 保存至时间线。
-2. **设定期待**：创建“待达成”的里程碑（如：第一次走路），设定预期时间。
-3. **点亮勋章**：当宝宝完成里程碑时，上传照片点亮勋章，记录实际达成时间。
-
-### ✔ 回顾与分享
-- **时间线**：倒序查看所有日记和里程碑。
-- **画廊模式**：沉浸式浏览所有照片。
-- **拍立得**：选择一张照片，生成精美卡片，保存到本地或分享给亲友。
+### ✔ Why Cloudflare Secrets?
+- All sensitive keys (`SUPABASE_SERVICE_ROLE_KEY`, `FAMILY_TOKEN`) are stored via `wrangler secret put` and are never exposed in the source code.
 
 ------
 
-## 🔮 未来计划
+## 📌 8. Development Status
 
-以下功能将在后续版本考虑：
-
-- 支持多宝宝 / 多家庭空间
-- 自定义域名（如：**babyname.me**）
-- 自动生成 AI 年度成长视频
-- 视频记录支持
-- 家人留言/祝福
-- 家庭账号体系（父母、爷爷奶奶、朋友）
+1. [x] **Infrastructure Initialization**: Folder structure and skeleton code.
+2. [x] **Backend Implementation**: Supabase REST wrapper, R2 proxy, global auth logic.
+3. [x] **Security Hardening**: Token mechanism, proxy mode, secrets management.
+4. [ ] **Database Setup**: Execute SQL in Supabase.
+5. [ ] **Frontend Integration**: Replace skeleton logic with real UI operations.
+6. [ ] **Deployment**: `npx wrangler deploy`.
 
 ------
 
-## 🧩 为什么这样设计？
+## 🧪 9. Local Development
 
-因为这是一个：
+To run the project locally:
 
-- **为家人使用而生**
-- **情感价值比技术更重要**
-- **极简但温暖**
-- **隐私优先**
-
-的项目。
-
-Baby Timeline 不是为了互联网，而是为了家人。
-
-------
-
-## 🧪 本地开发方式
-
-```sh
-npm install
-npm run dev   # 监听 Tailwind CLI
-```
-
-另外：
-
-```sh
-npx wrangler dev
-```
-
-然后访问：
-
-```
-http://localhost:8787
-```
-
-------
-
-## 🌐 部署方式
-
-得益于 Cloudflare Workers 的静态资源托管（Assets）功能，你只需要部署 Worker 即可。
-
-1. **准备资源**：
-   - 在 Supabase 创建数据库（参考 `worker/src/db/schema.sql` 建表）。
-   - 在 Cloudflare 创建 R2 存储桶 `baby-timeline-media`。
-
-2. **配置密钥**：
+1. **Install Dependencies:**
    ```sh
+   npm install
+   ```
+
+2. **Run Worker:**
+   Navigate to the worker directory and run the development server:
+   ```sh
+   cd worker
+   npm run dev
+   # Or directly via wrangler
+   npx wrangler dev
+   ```
+
+3. **Access the App:**
+   Visit `http://localhost:8787` in your browser.
+
+------
+
+## 🌐 10. Deployment
+
+Thanks to Cloudflare Workers' static asset hosting, you only need to deploy the Worker.
+
+1. **Prepare Resources:**
+   - Create the database in Supabase (use the SQL schema provided in Section 3).
+   - Create an R2 bucket named `baby-timeline-media` in Cloudflare.
+
+2. **Configure Secrets:**
+   ```sh
+   cd worker
    npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
    npx wrangler secret put FAMILY_TOKEN
    ```
 
-3. **一键部署**：
+3. **Deploy:**
    ```sh
    npx wrangler deploy
    ```
 
-Worker 会自动处理 API 请求并托管 `/public` 目录下的所有静态文件，无需单独部署 Pages。
-
-------
-
-## 📬 联系与反馈
-
-如果你：
-
-- 想扩展更多功能
-- 想为自己的宝宝搭建一个版本
-- 想参与后续方向设计
-
-欢迎随时提出建议。
+The Worker will automatically handle API requests and host all static files from the `/public` directory.
